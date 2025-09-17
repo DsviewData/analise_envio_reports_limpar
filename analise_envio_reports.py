@@ -1,11 +1,18 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import numpy as np
 from datetime import datetime
 import io
+
+# Imports condicionais para plotly
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.warning("⚠️ Plotly não está disponível. Alguns gráficos podem não funcionar.")
 
 # Configuração da página
 st.set_page_config(
@@ -163,77 +170,91 @@ def calcular_status_individual(df, responsaveis_unicos):
 
 def criar_grafico_evolucao(analise):
     """Cria gráfico de evolução temporal"""
-    meses = ['Julho', 'Agosto', 'Setembro']
-    taxas = [analise[7]['taxa_envio'], analise[8]['taxa_envio'], analise[9]['taxa_envio']]
-    cores = ['#9b59b6', '#e74c3c', '#f39c12']
+    if not PLOTLY_AVAILABLE:
+        return None
     
-    fig = go.Figure()
-    
-    # Barras
-    fig.add_trace(go.Bar(
-        x=meses,
-        y=taxas,
-        marker_color=cores,
-        text=[f'{taxa:.1f}%' for taxa in taxas],
-        textposition='outside',
-        name='Taxa de Envio'
-    ))
-    
-    # Linha de tendência
-    fig.add_trace(go.Scatter(
-        x=meses,
-        y=taxas,
-        mode='lines+markers',
-        line=dict(color='red', width=3, dash='dash'),
-        marker=dict(size=8, color='red'),
-        name='Tendência'
-    ))
-    
-    fig.update_layout(
-        title='Evolução da Taxa de Envios (Julho-Setembro 2025)',
-        xaxis_title='Mês',
-        yaxis_title='Taxa de Envio (%)',
-        yaxis=dict(range=[0, 100]),
-        height=400,
-        showlegend=True
-    )
-    
-    return fig
+    try:
+        meses = ['Julho', 'Agosto', 'Setembro']
+        taxas = [analise[7]['taxa_envio'], analise[8]['taxa_envio'], analise[9]['taxa_envio']]
+        cores = ['#9b59b6', '#e74c3c', '#f39c12']
+        
+        fig = go.Figure()
+        
+        # Barras
+        fig.add_trace(go.Bar(
+            x=meses,
+            y=taxas,
+            marker_color=cores,
+            text=[f'{taxa:.1f}%' for taxa in taxas],
+            textposition='outside',
+            name='Taxa de Envio'
+        ))
+        
+        # Linha de tendência
+        fig.add_trace(go.Scatter(
+            x=meses,
+            y=taxas,
+            mode='lines+markers',
+            line=dict(color='red', width=3, dash='dash'),
+            marker=dict(size=8, color='red'),
+            name='Tendência'
+        ))
+        
+        fig.update_layout(
+            title='Evolução da Taxa de Envios (Julho-Setembro 2025)',
+            xaxis_title='Mês',
+            yaxis_title='Taxa de Envio (%)',
+            yaxis=dict(range=[0, 100]),
+            height=400,
+            showlegend=True
+        )
+        
+        return fig
+    except Exception as e:
+        st.error(f"Erro ao criar gráfico: {str(e)}")
+        return None
 
 def criar_grafico_pizza_situacao(status_individual):
     """Cria gráfico de pizza com situação dos responsáveis"""
-    categorias = {}
-    for status in status_individual.values():
-        cat = status['categoria']
-        categorias[cat] = categorias.get(cat, 0) + 1
+    if not PLOTLY_AVAILABLE:
+        return None
     
-    labels = {
-        'ativo': 'Totalmente Ativos',
-        'parcial': 'Parcialmente Ativos', 
-        'pouco': 'Pouco Ativos',
-        'inativo': 'Inativos'
-    }
-    
-    cores = {
-        'ativo': '#27ae60',
-        'parcial': '#f39c12',
-        'pouco': '#e74c3c', 
-        'inativo': '#95a5a6'
-    }
-    
-    fig = go.Figure(data=[go.Pie(
-        labels=[labels[cat] for cat in categorias.keys()],
-        values=list(categorias.values()),
-        marker_colors=[cores[cat] for cat in categorias.keys()],
-        hole=0.3
-    )])
-    
-    fig.update_layout(
-        title='Distribuição dos Responsáveis por Situação',
-        height=400
-    )
-    
-    return fig
+    try:
+        categorias = {}
+        for status in status_individual.values():
+            cat = status['categoria']
+            categorias[cat] = categorias.get(cat, 0) + 1
+        
+        labels = {
+            'ativo': 'Totalmente Ativos',
+            'parcial': 'Parcialmente Ativos', 
+            'pouco': 'Pouco Ativos',
+            'inativo': 'Inativos'
+        }
+        
+        cores = {
+            'ativo': '#27ae60',
+            'parcial': '#f39c12',
+            'pouco': '#e74c3c', 
+            'inativo': '#95a5a6'
+        }
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=[labels[cat] for cat in categorias.keys()],
+            values=list(categorias.values()),
+            marker_colors=[cores[cat] for cat in categorias.keys()],
+            hole=0.3
+        )])
+        
+        fig.update_layout(
+            title='Distribuição dos Responsáveis por Situação',
+            height=400
+        )
+        
+        return fig
+    except Exception as e:
+        st.error(f"Erro ao criar gráfico: {str(e)}")
+        return None
 
 # Interface principal
 def main():
@@ -344,15 +365,75 @@ def main():
             """, unsafe_allow_html=True)
             
             # Gráficos
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig_evolucao = criar_grafico_evolucao(analise_mensal)
-                st.plotly_chart(fig_evolucao, use_container_width=True)
-            
-            with col2:
-                fig_pizza = criar_grafico_pizza_situacao(status_individual)
-                st.plotly_chart(fig_pizza, use_container_width=True)
+            if PLOTLY_AVAILABLE:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig_evolucao = criar_grafico_evolucao(analise_mensal)
+                    if fig_evolucao:
+                        st.plotly_chart(fig_evolucao, use_container_width=True)
+                    else:
+                        st.subheader("Evolução das Taxas")
+                        dados_evolucao = pd.DataFrame({
+                            'Mês': ['Julho', 'Agosto', 'Setembro'],
+                            'Taxa (%)': [analise_mensal[7]['taxa_envio'], 
+                                       analise_mensal[8]['taxa_envio'], 
+                                       analise_mensal[9]['taxa_envio']]
+                        })
+                        st.bar_chart(dados_evolucao.set_index('Mês'))
+                
+                with col2:
+                    fig_pizza = criar_grafico_pizza_situacao(status_individual)
+                    if fig_pizza:
+                        st.plotly_chart(fig_pizza, use_container_width=True)
+                    else:
+                        st.subheader("Distribuição por Situação")
+                        categorias_count = {}
+                        for status in status_individual.values():
+                            cat = status['categoria']
+                            categorias_count[cat] = categorias_count.get(cat, 0) + 1
+                        
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            st.metric("🟢 Totalmente Ativos", categorias_count.get('ativo', 0))
+                            st.metric("🟠 Pouco Ativos", categorias_count.get('pouco', 0))
+                        with col_b:
+                            st.metric("🟡 Parcialmente Ativos", categorias_count.get('parcial', 0))
+                            st.metric("🔴 Inativos", categorias_count.get('inativo', 0))
+            else:
+                st.warning("⚠️ Gráficos interativos não disponíveis. Exibindo dados em formato alternativo.")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.subheader("Evolução das Taxas")
+                    dados_evolucao = pd.DataFrame({
+                        'Mês': ['Julho', 'Agosto', 'Setembro'],
+                        'Taxa (%)': [analise_mensal[7]['taxa_envio'], 
+                                   analise_mensal[8]['taxa_envio'], 
+                                   analise_mensal[9]['taxa_envio']]
+                    })
+                    st.bar_chart(dados_evolucao.set_index('Mês'))
+                
+                with col2:
+                    st.subheader("Situação dos Responsáveis")
+                    categorias_count = {}
+                    for status in status_individual.values():
+                        cat = status['categoria']
+                        categorias_count[cat] = categorias_count.get(cat, 0) + 1
+                    
+                    labels_map = {
+                        'ativo': 'Totalmente Ativos',
+                        'parcial': 'Parcialmente Ativos',
+                        'pouco': 'Pouco Ativos',
+                        'inativo': 'Inativos'
+                    }
+                    
+                    dist_df = pd.DataFrame({
+                        'Situação': [labels_map[k] for k in categorias_count.keys()],
+                        'Quantidade': list(categorias_count.values())
+                    })
+                    st.bar_chart(dist_df.set_index('Situação'))
             
             # Análise detalhada por mês
             st.header("📅 Análise Detalhada por Mês")
@@ -397,15 +478,14 @@ def main():
                         'Agosto': '✅ ENVIOU' if status['agosto'] else '❌ NÃO ENVIOU', 
                         'Setembro': '✅ ENVIOU' if status['setembro'] else '❌ NÃO ENVIOU',
                         'Atividade': f"{status['meses_ativos']}/3 meses",
-                        'Situação': status['situacao'],
-                        'Categoria': status['categoria']
+                        'Situação': status['situacao']
                     })
             
             df_tabela = pd.DataFrame(dados_tabela)
             
             if not df_tabela.empty:
                 st.dataframe(
-                    df_tabela[['Responsável', 'Julho', 'Agosto', 'Setembro', 'Atividade', 'Situação']],
+                    df_tabela,
                     use_container_width=True,
                     height=400
                 )
